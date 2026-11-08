@@ -1,0 +1,24 @@
+{
+  "name": "spectra-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spectra API: fetches YouTube video details and prepares downloads in the best available quality.",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --watch-path=src --env-file-if-exists=.env src/server.js",
+    "postinstall": "node scripts/install-ytdlp.js",
+    "ytdlp:install": "node scripts/install-ytdlp.js --force"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "ffmpeg-static": "^5.2.0",
+    "helmet": "^8.1.0"
+  }
+}

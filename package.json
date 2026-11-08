@@ -1,0 +1,13 @@
+{
+  "name": "spectra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Download YouTube videos in the best available quality.",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend start",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix backend start"
+  }
+}

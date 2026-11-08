@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.angular
+**/.env
+backend/bin
+.git
+.vscode
+**/.vscode
