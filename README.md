@@ -7,7 +7,7 @@ Accepted links: YouTube videos and Shorts (`youtube.com/watch`, `youtu.be`, `/sh
 | Folder | Stack |
 |---|---|
 | `frontend/` | Angular 21 |
-| `backend/` | Node.js 22+, Express 5, yt-dlp, ffmpeg |
+| `backend/` | Node.js 22.12+ (the Docker image uses Node 24), Express 5, yt-dlp, ffmpeg |
 
 ## How it works
 
@@ -61,6 +61,18 @@ docker run -p 4000:4000 -e TRUST_PROXY=1 spectra
 The image works on any host that runs containers: Render, Railway, Fly.io, DigitalOcean, a VPS. Set `TRUST_PROXY=1` when the host puts a proxy in front of the app (all of the ones listed do).
 
 Pick a host with a persistent process and enough temporary disk for the largest file you expect (a 10-minute 4K video is about 1 GB). Serverless platforms (Vercel functions, Netlify functions) are not suitable for the backend.
+
+### Render (free tier)
+
+1. **New › Web Service**, connect this repository, choose **Docker**, the **Free** instance type, and health check path `/api/health`.
+2. Environment variables: `TRUST_PROXY` = `1`, and `SITE_PASSCODE` = the passcode to share (see below). Render sets `PORT` itself.
+3. If YouTube blocks the server, add the cookies file under **Secret Files** as `cookies.txt` and set `YTDLP_COOKIES_FILE` = `/etc/secrets/cookies.txt`. The backend works from a writable copy, so the read-only secret file is fine.
+
+The free instance sleeps after 15 minutes without visitors; the next visit takes about a minute to wake it.
+
+### Family passcode
+
+Set `SITE_PASSCODE` to make the site private: visitors see a passcode screen first, and once they enter it the browser is remembered for 30 days (a signed, HTTP-only cookie). Changing the passcode signs everyone out. Leave it unset for an open site, which is how local development runs.
 
 ### Frontend on a separate host
 

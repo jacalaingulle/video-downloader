@@ -1,5 +1,5 @@
 # Build the Angular frontend
-FROM node:22-bookworm-slim AS frontend
+FROM node:24-bookworm-slim AS frontend
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Run the Node.js backend, which also serves the built frontend
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 ENV NODE_ENV=production \
     PORT=4000 \
     YTDLP_AUTO_UPDATE=true

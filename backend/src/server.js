@@ -5,6 +5,7 @@ import cors from 'cors';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import { isLocked, isUnlocked, requirePasscode, unlock } from './auth.js';
 import { config } from './config.js';
 import { cancelJob, createJob, getJob, publicJob, resetDownloadDir, startCleanup } from './jobs.js';
 import { parseLink } from './links.js';
@@ -48,6 +49,18 @@ const limiter = (limit) =>
   });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// Family passcode (only when SITE_PASSCODE is set): the page asks for it before showing the downloader.
+app.get('/api/session', (req, res) => {
+  res.set('Cache-Control', 'no-store').json({ locked: isLocked(), unlocked: isUnlocked(req) });
+});
+
+app.post('/api/unlock', limiter(10), (req, res) => {
+  if (unlock(req, res, req.body?.passcode)) return res.json({ unlocked: true });
+  res.status(401).json({ error: 'That passcode is not right. Try again.' });
+});
+
+app.use(['/api/info', '/api/jobs'], requirePasscode);
 
 app.get('/api/info', limiter(config.rateLimitInfo), async (req, res, next) => {
   try {

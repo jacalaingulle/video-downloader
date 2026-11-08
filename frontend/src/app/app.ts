@@ -14,6 +14,8 @@ import {
 } from './downloader.service';
 
 type View = 'idle' | 'loading' | 'ready' | 'working' | 'done';
+/** 'checking' while asking the server; 'locked' shows the passcode screen; 'open' shows the downloader. */
+type Gate = 'checking' | 'locked' | 'open';
 
 const POLL_MS = 800;
 const RETRY_MS = 1500;
@@ -36,6 +38,11 @@ export class App implements OnDestroy {
   private infoRequest = 0;
 
   protected readonly year = new Date().getFullYear();
+
+  protected readonly gate = signal<Gate>('checking');
+  protected readonly passcode = signal('');
+  protected readonly passcodeError = signal<string | null>(null);
+  protected readonly unlocking = signal(false);
 
   protected readonly url = signal('');
   protected readonly view = signal<View>('idle');
@@ -73,6 +80,29 @@ export class App implements OnDestroy {
     const fps = best.fps && best.fps > 30 ? ` ${best.fps}fps` : '';
     return best.p ? `${best.p}p${fps} · ${best.label}` : best.label;
   });
+
+  constructor() {
+    void this.checkSession();
+  }
+
+  protected async submitPasscode(): Promise<void> {
+    const passcode = this.passcode().trim();
+    if (!passcode) {
+      this.passcodeError.set('Enter the passcode.');
+      return;
+    }
+    this.unlocking.set(true);
+    this.passcodeError.set(null);
+    try {
+      await this.downloader.unlock(passcode);
+      this.passcode.set('');
+      this.gate.set('open');
+    } catch (err) {
+      this.passcodeError.set((err as Error).message);
+    } finally {
+      this.unlocking.set(false);
+    }
+  }
 
   protected onUrlChange(value: string): void {
     this.url.set(value);
@@ -119,8 +149,8 @@ export class App implements OnDestroy {
       this.view.set('ready');
     } catch (err) {
       if (request !== this.infoRequest) return;
-      this.error.set((err as Error).message);
       this.view.set('idle');
+      if (!this.lockIfNeeded(err)) this.error.set((err as Error).message);
     }
   }
 
@@ -153,6 +183,7 @@ export class App implements OnDestroy {
       this.poll(job.id);
     } catch (err) {
       if (this.view() === 'working') this.fail((err as Error).message);
+      this.lockIfNeeded(err);
     }
   }
 
@@ -312,11 +343,32 @@ export class App implements OnDestroy {
           // A dropped connection (mobile network, proxy hiccup) gets retried for a while before giving up.
           if (err instanceof ApiError && err.transient && misses < MAX_POLL_MISSES)
             this.poll(id, misses + 1);
-          else this.fail((err as Error).message);
+          else {
+            this.fail((err as Error).message);
+            this.lockIfNeeded(err);
+          }
         }
       },
       misses ? RETRY_MS : POLL_MS,
     );
+  }
+
+  private async checkSession(): Promise<void> {
+    try {
+      const session = await this.downloader.session();
+      this.gate.set(session.locked && !session.unlocked ? 'locked' : 'open');
+    } catch {
+      // Server unreachable: show the downloader, which explains the problem on first use.
+      this.gate.set('open');
+    }
+  }
+
+  /** Shows the passcode screen when the server asks for it (for example after the passcode changed). */
+  private lockIfNeeded(err: unknown): boolean {
+    if (!(err instanceof ApiError && err.locked)) return false;
+    this.error.set(null);
+    this.gate.set('locked');
+    return true;
   }
 
   private fail(message: string): void {

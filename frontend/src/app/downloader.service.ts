@@ -153,6 +153,15 @@ export class DownloaderService {
     return this.call(this.http.delete<void>(`${this.api}/jobs/${id}`)).catch(() => undefined);
   }
 
+  /** Whether the site needs the family passcode, and whether this browser already entered it. */
+  session(): Promise<{ locked: boolean; unlocked: boolean }> {
+    return this.call(this.http.get<{ locked: boolean; unlocked: boolean }>(`${this.api}/session`));
+  }
+
+  unlock(passcode: string): Promise<void> {
+    return this.call(this.http.post<void>(`${this.api}/unlock`, { passcode }));
+  }
+
   fileUrl(id: string): string {
     return `${this.api}/jobs/${id}/file`;
   }
@@ -171,6 +180,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly transient: boolean,
+    /** The server wants the family passcode before it answers. */
+    readonly locked = false,
   ) {
     super(message);
   }
@@ -184,7 +195,8 @@ function toApiError(err: unknown): ApiError {
     if (err.status === 0 || err.status === 502 || err.status === 504)
       return new ApiError(UNREACHABLE, true);
     const message = err.error?.error;
-    if (typeof message === 'string') return new ApiError(message, false);
+    if (typeof message === 'string')
+      return new ApiError(message, false, err.error?.locked === true);
   }
   return new ApiError('Something went wrong. Please try again.', false);
 }

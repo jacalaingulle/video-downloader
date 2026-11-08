@@ -47,235 +47,286 @@
     </p>
   </header>
 
-  <main class="panel">
-    <form class="search" (ngSubmit)="fetchInfo()" novalidate>
-      <label class="sr-only" for="url">Video link</label>
-      <div class="field-wrap">
-        <div class="field" [class.invalid]="linkHint() && view() !== 'working'">
-          <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true">
+  @if (gate() === 'locked') {
+    <main class="panel lock" aria-labelledby="lock-title">
+      <div class="lock-head">
+        <span class="lock-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+        </span>
+        <div>
+          <h2 id="lock-title">Enter the family passcode</h2>
+          <p>This site is private. Ask the owner for the passcode.</p>
+        </div>
+      </div>
+      <form class="search" (ngSubmit)="submitPasscode()" novalidate>
+        <label class="sr-only" for="passcode">Passcode</label>
+        <div class="field-wrap">
+          <div class="field" [class.invalid]="passcodeError()">
+            <input
+              id="passcode"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Passcode"
+              [ngModel]="passcode()"
+              (ngModelChange)="passcode.set($event); passcodeError.set(null)"
+              name="passcode"
+              [attr.aria-invalid]="passcodeError() ? true : null"
+              [attr.aria-describedby]="passcodeError() ? 'passcode-hint' : null"
+            />
+          </div>
+          @if (passcodeError()) {
+            <p class="field-hint" id="passcode-hint" role="alert">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4.5M12 16h.01" />
+              </svg>
+              {{ passcodeError() }}
+            </p>
+          }
+        </div>
+        <button type="submit" class="primary" [disabled]="unlocking()">
+          @if (unlocking()) {
+            <span class="spinner" aria-hidden="true"></span> Checking
+          } @else {
+            Unlock
+          }
+        </button>
+      </form>
+    </main>
+  } @else if (gate() === 'open') {
+    <main class="panel">
+      <form class="search" (ngSubmit)="fetchInfo()" novalidate>
+        <label class="sr-only" for="url">Video link</label>
+        <div class="field-wrap">
+          <div class="field" [class.invalid]="linkHint() && view() !== 'working'">
+            <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"
+              />
+            </svg>
+            <input
+              id="url"
+              type="url"
+              inputmode="url"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste a YouTube or Facebook link"
+              [ngModel]="url()"
+              (ngModelChange)="onUrlChange($event)"
+              (paste)="onPaste($event)"
+              name="url"
+              [disabled]="view() === 'working'"
+              [attr.aria-invalid]="linkHint() ? true : null"
+              [attr.aria-describedby]="linkHint() ? 'url-hint' : null"
+            />
+            @if (platformName() && view() !== 'working') {
+              <span class="platform-chip">{{ platformName() }}</span>
+            }
+            @if (url() && view() !== 'working') {
+              <button type="button" class="icon-btn" (click)="reset()" aria-label="Clear link">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </button>
+            }
+          </div>
+          @if (linkHint() && view() !== 'working') {
+            <p class="field-hint" id="url-hint" role="alert">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v4.5M12 16h.01" />
+              </svg>
+              {{ linkHint() }}
+            </p>
+          }
+        </div>
+        <button
+          type="submit"
+          class="primary"
+          [disabled]="!urlValid() || view() === 'loading' || view() === 'working'"
+        >
+          @if (view() === 'loading') {
+            <span class="spinner" aria-hidden="true"></span> Loading
+          } @else {
+            Get video
+          }
+        </button>
+      </form>
+
+      @if (error()) {
+        <p class="alert" role="alert">{{ error() }}</p>
+      }
+
+      @if (view() === 'loading') {
+        <div class="preview skeleton" aria-busy="true" aria-label="Loading video details">
+          <div class="thumb"></div>
+          <div class="meta">
+            <div class="line w80"></div>
+            <div class="line w50"></div>
+            <div class="line w30"></div>
+          </div>
+        </div>
+      }
+
+      @if (info(); as v) {
+        <section class="preview" aria-label="Video details">
+          <div class="thumb">
+            @if (v.thumbnail) {
+              <img [src]="v.thumbnail" alt="" referrerpolicy="no-referrer" />
+            } @else {
+              <svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M10 9.5v5l4.5-2.5z" />
+              </svg>
+            }
+            @if (v.duration) {
+              <span class="duration">{{ formatDuration(v.duration) }}</span>
+            }
+          </div>
+          <div class="meta">
+            <h2 [title]="v.title">{{ v.title }}</h2>
+            @if (v.channel) {
+              <p class="channel">{{ v.channel }}</p>
+            }
+            @if (bestLabel()) {
+              <span class="badge">Best available: {{ bestLabel() }}</span>
+            }
+          </div>
+        </section>
+
+        @if (view() === 'ready') {
+          <section class="options" aria-label="Download options">
+            <div class="segmented" role="radiogroup" aria-label="Format">
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="kind() === 'video'"
+                [class.active]="kind() === 'video'"
+                (click)="kind.set('video')"
+              >
+                Video <small>MP4</small>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                [attr.aria-checked]="kind() === 'audio'"
+                [class.active]="kind() === 'audio'"
+                (click)="kind.set('audio')"
+              >
+                Audio <small>MP3</small>
+              </button>
+            </div>
+
+            @if (kind() === 'video' && v.qualities.length > 1) {
+              <label class="select">
+                <span class="sr-only">Quality</span>
+                <select [ngModel]="quality()" (ngModelChange)="quality.set($event)" name="quality">
+                  <option [ngValue]="null">Best · {{ v.qualities[0].p }}p</option>
+                  @for (q of v.qualities.slice(1); track q.height) {
+                    <option [ngValue]="q.height">{{ q.p }}p · {{ q.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+
+            <button type="button" class="primary download" (click)="startDownload()">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14" />
+              </svg>
+              Download {{ kind() === 'video' ? 'video' : 'audio' }}
+            </button>
+          </section>
+        }
+
+        @if (view() === 'working' && job(); as j) {
+          <section class="progress" aria-live="polite">
+            <div class="progress-head">
+              <span class="stage">{{ j.stage }}</span>
+              <span class="percent">{{ j.percent | number: '1.0-0' }}%</span>
+            </div>
+            <div
+              class="bar"
+              role="progressbar"
+              aria-label="Download progress"
+              [attr.aria-valuenow]="j.percent"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [class.indeterminate]="j.percent === 0"
+            >
+              <span [style.width.%]="j.percent"></span>
+            </div>
+            <div class="progress-foot">
+              <span>
+                {{ formatSpeed(j.speed) }}
+                @if (j.speed && j.eta !== null) {
+                  ·
+                }
+                {{ formatEta(j.eta) }}
+              </span>
+              <button type="button" class="link-btn" (click)="cancel()">Cancel</button>
+            </div>
+          </section>
+        }
+
+        @if (view() === 'done' && job(); as j) {
+          <section class="done" aria-live="polite">
+            <div class="done-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </div>
+            <div class="done-text">
+              <strong>Your download has started</strong>
+              <span>{{ j.fileName }}</span>
+              @if (clearInLabel()) {
+                <span class="clear-note" aria-live="off">Clearing in {{ clearInLabel() }}</span>
+              }
+            </div>
+            <div class="done-actions">
+              <button type="button" class="ghost-btn" (click)="saveFile()">Save again</button>
+              <button type="button" class="primary" (click)="reset()">New download</button>
+            </div>
+          </section>
+        }
+      }
+    </main>
+
+    <section class="steps" aria-label="How it works">
+      <div class="step">
+        <span class="num" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <path d="M5 15V5a1 1 0 0 1 1-1h10" />
+          </svg>
+        </span>
+        <div>
+          <strong>Copy the link</strong>
+          <p>Open the video on YouTube or Facebook and use Share &rsaquo; Copy link.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="num" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
             <path
               d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"
             />
           </svg>
-          <input
-            id="url"
-            type="url"
-            inputmode="url"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Paste a YouTube or Facebook link"
-            [ngModel]="url()"
-            (ngModelChange)="onUrlChange($event)"
-            (paste)="onPaste($event)"
-            name="url"
-            [disabled]="view() === 'working'"
-            [attr.aria-invalid]="linkHint() ? true : null"
-            [attr.aria-describedby]="linkHint() ? 'url-hint' : null"
-          />
-          @if (platformName() && view() !== 'working') {
-            <span class="platform-chip">{{ platformName() }}</span>
-          }
-          @if (url() && view() !== 'working') {
-            <button type="button" class="icon-btn" (click)="reset()" aria-label="Clear link">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-            </button>
-          }
-        </div>
-        @if (linkHint() && view() !== 'working') {
-          <p class="field-hint" id="url-hint" role="alert">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v4.5M12 16h.01" />
-            </svg>
-            {{ linkHint() }}
-          </p>
-        }
-      </div>
-      <button
-        type="submit"
-        class="primary"
-        [disabled]="!urlValid() || view() === 'loading' || view() === 'working'"
-      >
-        @if (view() === 'loading') {
-          <span class="spinner" aria-hidden="true"></span> Loading
-        } @else {
-          Get video
-        }
-      </button>
-    </form>
-
-    @if (error()) {
-      <p class="alert" role="alert">{{ error() }}</p>
-    }
-
-    @if (view() === 'loading') {
-      <div class="preview skeleton" aria-busy="true" aria-label="Loading video details">
-        <div class="thumb"></div>
-        <div class="meta">
-          <div class="line w80"></div>
-          <div class="line w50"></div>
-          <div class="line w30"></div>
+        </span>
+        <div>
+          <strong>Paste it above</strong>
+          <p>Spectra reads the video and finds the highest resolution available.</p>
         </div>
       </div>
-    }
-
-    @if (info(); as v) {
-      <section class="preview" aria-label="Video details">
-        <div class="thumb">
-          @if (v.thumbnail) {
-            <img [src]="v.thumbnail" alt="" referrerpolicy="no-referrer" />
-          } @else {
-            <svg class="thumb-placeholder" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="M10 9.5v5l4.5-2.5z" />
-            </svg>
-          }
-          @if (v.duration) {
-            <span class="duration">{{ formatDuration(v.duration) }}</span>
-          }
+      <div class="step">
+        <span class="num" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14" /></svg>
+        </span>
+        <div>
+          <strong>Download</strong>
+          <p>Save as MP4 video with sound, or as MP3 audio only.</p>
         </div>
-        <div class="meta">
-          <h2 [title]="v.title">{{ v.title }}</h2>
-          @if (v.channel) {
-            <p class="channel">{{ v.channel }}</p>
-          }
-          @if (bestLabel()) {
-            <span class="badge">Best available: {{ bestLabel() }}</span>
-          }
-        </div>
-      </section>
-
-      @if (view() === 'ready') {
-        <section class="options" aria-label="Download options">
-          <div class="segmented" role="radiogroup" aria-label="Format">
-            <button
-              type="button"
-              role="radio"
-              [attr.aria-checked]="kind() === 'video'"
-              [class.active]="kind() === 'video'"
-              (click)="kind.set('video')"
-            >
-              Video <small>MP4</small>
-            </button>
-            <button
-              type="button"
-              role="radio"
-              [attr.aria-checked]="kind() === 'audio'"
-              [class.active]="kind() === 'audio'"
-              (click)="kind.set('audio')"
-            >
-              Audio <small>MP3</small>
-            </button>
-          </div>
-
-          @if (kind() === 'video' && v.qualities.length > 1) {
-            <label class="select">
-              <span class="sr-only">Quality</span>
-              <select [ngModel]="quality()" (ngModelChange)="quality.set($event)" name="quality">
-                <option [ngValue]="null">Best · {{ v.qualities[0].p }}p</option>
-                @for (q of v.qualities.slice(1); track q.height) {
-                  <option [ngValue]="q.height">{{ q.p }}p · {{ q.label }}</option>
-                }
-              </select>
-            </label>
-          }
-
-          <button type="button" class="primary download" (click)="startDownload()">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14" />
-            </svg>
-            Download {{ kind() === 'video' ? 'video' : 'audio' }}
-          </button>
-        </section>
-      }
-
-      @if (view() === 'working' && job(); as j) {
-        <section class="progress" aria-live="polite">
-          <div class="progress-head">
-            <span class="stage">{{ j.stage }}</span>
-            <span class="percent">{{ j.percent | number: '1.0-0' }}%</span>
-          </div>
-          <div
-            class="bar"
-            role="progressbar"
-            aria-label="Download progress"
-            [attr.aria-valuenow]="j.percent"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            [class.indeterminate]="j.percent === 0"
-          >
-            <span [style.width.%]="j.percent"></span>
-          </div>
-          <div class="progress-foot">
-            <span>
-              {{ formatSpeed(j.speed) }}
-              @if (j.speed && j.eta !== null) {
-                ·
-              }
-              {{ formatEta(j.eta) }}
-            </span>
-            <button type="button" class="link-btn" (click)="cancel()">Cancel</button>
-          </div>
-        </section>
-      }
-
-      @if (view() === 'done' && job(); as j) {
-        <section class="done" aria-live="polite">
-          <div class="done-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-          </div>
-          <div class="done-text">
-            <strong>Your download has started</strong>
-            <span>{{ j.fileName }}</span>
-            @if (clearInLabel()) {
-              <span class="clear-note" aria-live="off">Clearing in {{ clearInLabel() }}</span>
-            }
-          </div>
-          <div class="done-actions">
-            <button type="button" class="ghost-btn" (click)="saveFile()">Save again</button>
-            <button type="button" class="primary" (click)="reset()">New download</button>
-          </div>
-        </section>
-      }
-    }
-  </main>
-
-  <section class="steps" aria-label="How it works">
-    <div class="step">
-      <span class="num" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <rect x="9" y="9" width="11" height="11" rx="2" />
-          <path d="M5 15V5a1 1 0 0 1 1-1h10" />
-        </svg>
-      </span>
-      <div>
-        <strong>Copy the link</strong>
-        <p>Open the video on YouTube or Facebook and use Share &rsaquo; Copy link.</p>
       </div>
-    </div>
-    <div class="step">
-      <span class="num" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path
-            d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"
-          />
-        </svg>
-      </span>
-      <div>
-        <strong>Paste it above</strong>
-        <p>Spectra reads the video and finds the highest resolution available.</p>
-      </div>
-    </div>
-    <div class="step">
-      <span class="num" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14" /></svg>
-      </span>
-      <div>
-        <strong>Download</strong>
-        <p>Save as MP4 video with sound, or as MP3 audio only.</p>
-      </div>
-    </div>
-  </section>
+    </section>
+  }
 
   <footer class="footer">
     <p>

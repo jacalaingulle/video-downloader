@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,6 +30,23 @@ function ytDlpPath() {
   return existsSync(local) ? local : 'yt-dlp';
 }
 
+// yt-dlp writes the cookies file back after each run, but hosts often mount secret files read-only
+// (Render keeps them in /etc/secrets). Work from a private copy in the temp folder instead.
+function cookiesFile() {
+  const source = process.env.YTDLP_COOKIES_FILE;
+  if (!source) return null;
+  const copy = join(tmpdir(), 'spectra-cookies.txt');
+  try {
+    // Write the contents into a fresh, writable file: a plain copy would keep the read-only mode.
+    if (existsSync(copy)) chmodSync(copy, 0o600);
+    writeFileSync(copy, readFileSync(source), { mode: 0o600 });
+    return copy;
+  } catch (err) {
+    console.error(`[yt-dlp] cannot read cookies file ${source}: ${err.message}`);
+    return null;
+  }
+}
+
 function staticDir() {
   const candidate = process.env.STATIC_DIR
     ? resolve(process.env.STATIC_DIR)
@@ -48,7 +65,7 @@ export const config = {
 
   ytDlpPath: ytDlpPath(),
   ffmpegPath: process.env.FFMPEG_PATH || ffmpegStatic || 'ffmpeg',
-  cookiesFile: process.env.YTDLP_COOKIES_FILE || null,
+  cookiesFile: cookiesFile(),
   proxy: process.env.YTDLP_PROXY || null,
   autoUpdate: bool('YTDLP_AUTO_UPDATE', false),
 
@@ -60,4 +77,7 @@ export const config = {
 
   rateLimitInfo: int('RATE_LIMIT_INFO', 60),
   rateLimitDownload: int('RATE_LIMIT_DOWNLOAD', 15),
+
+  // Optional: when set, visitors must enter this passcode before they can use the site.
+  passcode: process.env.SITE_PASSCODE || null,
 };
